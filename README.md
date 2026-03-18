@@ -77,6 +77,3 @@ streamlit run app.py
 
 **Q: 36氪数据为空？**
 > 36氪 RSS 通过关键词过滤 AI 相关内容，若当日该站未发布相关文章则结果为空，属正常现象。
-
-**Q: 如何部署到公网？**
-> 推荐 [Streamlit Community Cloud](https://share.streamlit.io/)（免费）或 [Hugging Face Spaces](https://huggingface.co/spaces)。将代码推送至 GitHub，在平台关联仓库后一键部署。记得将 API 密钥配置在平台的 Secrets / 环境变量中。
