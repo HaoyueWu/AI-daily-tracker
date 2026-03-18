@@ -64,72 +64,100 @@ def call_llm(prompt: str) -> str:
             "summary": "API 调用失败，请检查网络或剩余额度。"
         }, ensure_ascii=False)
 
-def process_with_llm(item: Dict[str, Any]) -> Dict[str, Any]:
-    """核心漏斗第二/三层：大模型聚类与打分"""
-    # 构造 Prompt
-    prompt = f"""
-    请分析以下 AI 资讯内容，并输出 JSON 格式。
-    标题: {item.get('title')}
+def process_batch_with_llm(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """核心漏斗第二/三层：批量大模型聚类与打分（每批最多 10 条）"""
+    
+    # 构造批量 Prompt
+    items_text = ""
+    for i, item in enumerate(items):
+        items_text += f"""
+    [{i+1}] 标题: {item.get('title')}
     来源: {item.get('source')}
-    内容: {item.get('raw_content')}
+    内容: {item.get('raw_content', '')[:150]}
+    """
+    
+    prompt = f"""
+    请批量分析以下 {len(items)} 条 AI 资讯，并统一输出一个 JSON 数组。
+    
+    {items_text}
     
     输出要求：
-    包含 score (1-10分之间的整数，评估其技术与商业重要性)，tags (1-2个核心标签列表)，summary (一句话中文总结)。
+    返回一个 JSON 数组，每个元素对应上面的一条资讯（按顺序），包含：
+    - score (1-10分之间的整数，评估其技术与商业重要性)
+    - tags (1-2个核心标签列表)
+    - summary (一句话中文总结)
+    
+    示例输出格式：
+    [{{"score": 8, "tags": ["大模型", "开源"], "summary": "xxx"}}, {{"score": 6, "tags": ["工具"], "summary": "yyy"}}]
     """
     
     llm_response = call_llm(prompt)
     
+    # 解析批量返回的 JSON 数组
     try:
-        llm_data = json.loads(llm_response)
-        # 强制转换为整数
-        try:
-            item["score"] = int(float(llm_data.get("score", 0)))
-        except (ValueError, TypeError):
-            item["score"] = 0
-            
-        # 兼容 tags 为 string 或 list 结构
-        tags_raw = llm_data.get("tags", [])
-        item["tags"] = tags_raw if isinstance(tags_raw, list) else [tags_raw]
-        item["summary"] = llm_data.get("summary", "解析失败暂无总结")
+        results = json.loads(llm_response)
+        if not isinstance(results, list):
+            results = [results]
     except json.JSONDecodeError:
-        item["score"] = 0
-        item["tags"] = []
-        item["summary"] = "JSON 解析失败"
-        
-    return item
+        # 尝试从文本中提取 JSON 数组
+        try:
+            start = llm_response.index("[")
+            end = llm_response.rindex("]") + 1
+            results = json.loads(llm_response[start:end])
+        except:
+            results = []
+    
+    # 将 LLM 结果回填到对应的 item 中
+    for i, item in enumerate(items):
+        if i < len(results):
+            llm_data = results[i]
+            try:
+                item["score"] = int(float(llm_data.get("score", 0)))
+            except (ValueError, TypeError):
+                item["score"] = 0
+            tags_raw = llm_data.get("tags", [])
+            item["tags"] = tags_raw if isinstance(tags_raw, list) else [tags_raw]
+            item["summary"] = llm_data.get("summary", "暂无总结")
+        else:
+            # LLM 返回数量不足时的兜底
+            item["score"] = 5
+            item["tags"] = ["待分析"]
+            item["summary"] = item.get("title", "暂无总结")
+    
+    return items
 
 def run_pipeline(raw_data: List[Dict[str, Any]]) -> pd.DataFrame:
     """执行完整的数据清洗与加工流"""
     # 一：规则过滤
     step1_data = filter_by_rules(raw_data)
     
-    # 二/三：LLM 分析打分与时间衰减算法 (Time Decay)
+    # 二/三：LLM 批量分析打分与时间衰减算法 (Time Decay)
+    # 每 10 条为一批送入大模型，大幅减少 API 调用次数
+    BATCH_SIZE = 10
     processed_data = []
     now_dt = datetime.datetime.now()
     
-    for item in step1_data:
-        processed_item = process_with_llm(item)
-        base_score = processed_item.get("score", 0)
+    for batch_start in range(0, len(step1_data), BATCH_SIZE):
+        batch = step1_data[batch_start:batch_start + BATCH_SIZE]
+        processed_batch = process_batch_with_llm(batch)
         
-        # 计算时间衰减
-        pub_time = processed_item.get("publish_time")
-        penalty = 0.0
-        if isinstance(pub_time, datetime.datetime):
-            delta = now_dt - pub_time
-            # 将差距转化为‘天数’
-            days_old = max(0, delta.total_seconds() / (24 * 3600))
-            # 设定：每衰退 1 天扣 0.2 分 (可保留1位小数)
-            penalty = round(days_old * 0.2, 1)
+        for processed_item in processed_batch:
+            base_score = processed_item.get("score", 0)
             
-        # 计算最终综合分 (最低保底 1 分)
-        final_score = max(1.0, round(float(base_score) - penalty, 1))
-        
-        # 将结构写入数据
-        processed_item["base_score"] = base_score
-        processed_item["time_penalty"] = penalty
-        processed_item["score"] = final_score
-        
-        processed_data.append(processed_item)
+            pub_time = processed_item.get("publish_time")
+            penalty = 0.0
+            if isinstance(pub_time, datetime.datetime):
+                delta = now_dt - pub_time
+                days_old = max(0, delta.total_seconds() / (24 * 3600))
+                penalty = round(days_old * 0.2, 1)
+                
+            final_score = max(1.0, round(float(base_score) - penalty, 1))
+            
+            processed_item["base_score"] = base_score
+            processed_item["time_penalty"] = penalty
+            processed_item["score"] = final_score
+            
+            processed_data.append(processed_item)
         
     # 转换为 DataFrame 方便分析与展示
     df = pd.DataFrame(processed_data)
