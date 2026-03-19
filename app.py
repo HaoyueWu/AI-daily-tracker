@@ -3,7 +3,7 @@ import pandas as pd
 from data_fetcher import fetch_all
 from llm_pipeline import run_pipeline
 
-st.set_page_config(page_title="金融科技 AI 情报雷达", page_icon="⚡️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI Daily Tracker", page_icon="⚡️", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -415,6 +415,13 @@ def build_archive_html(row):
 if "df_result" in st.session_state:
     df = st.session_state["df_result"]
     
+    # 防御性检测：如果 Streamlit Cloud 网页持久化缓存了旧版的数据格式（缺少 comprehensive_score)
+    # 则自动清空脏缓存，要求用户重新抓取
+    if "comprehensive_score" not in df.columns:
+        del st.session_state["df_result"]
+        st.warning("⚠️ 检测到旧版浏览器缓存与新系统不兼容。脏数据已自动清理，请点击左侧重新同步最新情报！")
+        st.stop()
+        
     # ---------------- 整体概览 TOP 5 ----------------
     st.markdown('<div class="section-title">市场风向标 (Top 5)</div>', unsafe_allow_html=True)
     global_top_5 = df.sort_values(by="comprehensive_score", ascending=False).head(5)
