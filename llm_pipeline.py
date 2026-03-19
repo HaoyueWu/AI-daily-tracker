@@ -3,6 +3,7 @@ import json
 import random
 import datetime
 import pandas as pd
+import concurrent.futures
 from typing import List, Dict, Any
 
 def filter_by_rules(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -49,9 +50,10 @@ def call_llm(prompt: str) -> str:
         completion = client.chat.completions.create(
             model="qwen-plus", # 可根据需求调整为 qwen-turbo 或 qwen-max
             messages=[
-                {"role": "system", "content": "你是一个 AI 领域的新闻分析师。请严格按照用户输出要求，返回合法的 JSON 格式。返回时除了 JSON 文本不要带有额外的说明字符或 markdown 的 ```json 前缀。"},
+                {"role": "system", "content": "你是一个资深的 AI 商业情报分析师。请严格按照用户输出要求，返回合法的 JSON 格式。返回时务必只输出 JSON 对象，不要含有任何 markdown 代码块前缀。"},
                 {"role": "user", "content": prompt}
             ],
+            response_format={"type": "json_object"},
             temperature=0.3, # 稍微调低温度以保证 JSON 输出的稳定性
         )
         return completion.choices[0].message.content
@@ -59,70 +61,111 @@ def call_llm(prompt: str) -> str:
         print(f"Error calling Qwen API: {e}")
         # 如果出错，为了保证流程不中断，返回格式化的兜底 JSON
         return json.dumps({
-            "score": 0,
-            "tags": ["错误"],
-            "summary": "API 调用失败，请检查网络或剩余额度。"
+            "results": []
         }, ensure_ascii=False)
 
 def process_batch_with_llm(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """核心漏斗第二/三层：批量大模型聚类与打分（每批最多 10 条）"""
+    """核心漏斗第二/三层：批量大模型智能打分聚类与高维提炼"""
     
     # 构造批量 Prompt
     items_text = ""
     for i, item in enumerate(items):
         items_text += f"""
-    [{i+1}] 标题: {item.get('title')}
+    [ID: {i}] 标题: {item.get('title')}
     来源: {item.get('source')}
     内容: {item.get('raw_content', '')[:150]}
     """
     
     prompt = f"""
-    请批量分析以下 {len(items)} 条 AI 资讯，并统一输出一个 JSON 数组。
+    请作为一名顶级的金融科技商业分析师，批量分析以下 {len(items)} 条 AI 资讯。
     
     {items_text}
     
     输出要求：
-    返回一个 JSON 数组，每个元素对应上面的一条资讯（按顺序），包含：
-    - score (1-10分之间的整数，评估其技术与商业重要性)
-    - tags (1-2个核心标签列表)
-    - summary (一句话中文总结)
+    必须返回一个合法的 JSON 对象，包含一个名为 "results" 的 JSON 数组。
+    数组中的每个元素对应上面的一条资讯（请严格按照 [ID] 顺序排列），包含以下字段：
+    - id (必须是一个整数，对应你在处理的资讯的 ID：0, 1, 2...)
+    - core_event (一句话精炼总结这到底是个什么核心客观事件或新产品)
+    - business_impact (非常重要！分析其对金融科技落地、企业降本增效、资本流动、或行业竞争格局带来的具体商业影响，需要一针见血)
+    - category (必须严格从以下四个赛道中选择其一，并参考以下定义：
+        '底层基建': 硬件芯片、算力中心、开源大语言模型发布、主流框架库等技术底座。
+        '金融与应用落地': AI在各行各业的具体产品化、SaaS应用发布、B端或C端落地场景。
+        '资本创投流向': 定义要非常宽泛！包括但不限于：任何融资事件、收购并购(M&A)、科技巨头战略级商业扩张与结盟、核心高管/顶级大牛的人事跳槽变动、IPO动向、以及商业化盈利里程碑。
+        '其他边界探索': 纯学术论文、实验室前沿研究、科幻/AGI哲学讨论等小众杂项。
+      )
+    - tags (1到2个核心标签，如 "大模型", "RAG", "芯片", "高管变动" 等)
+    - business_score (1-10分之间的整数，极其严苛地评估其转化为实际商业收入或改变业务模式的商业潜力，满分为改变时代的级别)
+    - heat_score (1-10分之间的整数，评估其在开发者社区或全网的纯技术热度和技术突破重要性)
     
     示例输出格式：
-    [{{"score": 8, "tags": ["大模型", "开源"], "summary": "xxx"}}, {{"score": 6, "tags": ["工具"], "summary": "yyy"}}]
+    {{
+      "results": [
+        {{
+          "id": 0,
+          "core_event": "OpenAI 推出新型金融分析套件内测",
+          "business_impact": "直接威胁现有金融数据终端(如 Bloomberg)的市场份额，能大幅降低投研团队的财报分析人力成本。",
+          "category": "金融与应用落地",
+          "tags": ["AI 代理", "投研自动化"],
+          "business_score": 9,
+          "heat_score": 8
+        }}
+      ]
+    }}
     """
     
     llm_response = call_llm(prompt)
     
     # 解析批量返回的 JSON 数组
+    results_map = {}
     try:
-        results = json.loads(llm_response)
-        if not isinstance(results, list):
-            results = [results]
+        data = json.loads(llm_response)
+        results = data.get("results", [])
+        for r in results:
+            if "id" in r:
+                results_map[r["id"]] = r
     except json.JSONDecodeError:
-        # 尝试从文本中提取 JSON 数组
+        # 尝试从文本中提取 JSON 数组兜底
         try:
-            start = llm_response.index("[")
-            end = llm_response.rindex("]") + 1
-            results = json.loads(llm_response[start:end])
+            start = llm_response.find("{")
+            end = llm_response.rfind("}") + 1
+            data = json.loads(llm_response[start:end])
+            results = data.get("results", [])
+            for r in results:
+                if "id" in r:
+                    results_map[r["id"]] = r
         except:
-            results = []
+            pass
     
     # 将 LLM 结果回填到对应的 item 中
     for i, item in enumerate(items):
-        if i < len(results):
-            llm_data = results[i]
+        if i in results_map:
+            llm_data = results_map[i]
+            
             try:
-                item["score"] = int(float(llm_data.get("score", 0)))
+                item["business_score"] = int(float(llm_data.get("business_score", 5)))
+                item["heat_score"] = int(float(llm_data.get("heat_score", 5)))
             except (ValueError, TypeError):
-                item["score"] = 0
-            tags_raw = llm_data.get("tags", [])
+                item["business_score"] = 5
+                item["heat_score"] = 5
+                
+            tags_raw = llm_data.get("tags", ["待归类"])
             item["tags"] = tags_raw if isinstance(tags_raw, list) else [tags_raw]
-            item["summary"] = llm_data.get("summary", "暂无总结")
+            
+            item["core_event"] = llm_data.get("core_event", item.get("title", "暂无摘要"))
+            item["business_impact"] = llm_data.get("business_impact", "暂无分析建议。")
+            
+            cat = llm_data.get("category", "其他边界探索")
+            valid_cats = ["底层基建", "金融与应用落地", "资本创投流向", "其他边界探索"]
+            item["category"] = cat if cat in valid_cats else "其他边界探索"
+            
         else:
-            # LLM 返回数量不足时的兜底
-            item["score"] = 5
-            item["tags"] = ["待分析"]
-            item["summary"] = item.get("title", "暂无总结")
+            # LLM 返回数量不足时或出错的兜底
+            item["business_score"] = 3
+            item["heat_score"] = 5
+            item["tags"] = ["解析缺失"]
+            item["core_event"] = str(item.get("title", ""))[:50]
+            item["business_impact"] = "大模型未能成功解析此条目的商业价值。"
+            item["category"] = "其他边界探索"
     
     return items
 
@@ -137,12 +180,19 @@ def run_pipeline(raw_data: List[Dict[str, Any]]) -> pd.DataFrame:
     processed_data = []
     now_dt = datetime.datetime.now()
     
-    for batch_start in range(0, len(step1_data), BATCH_SIZE):
-        batch = step1_data[batch_start:batch_start + BATCH_SIZE]
-        processed_batch = process_batch_with_llm(batch)
-        
+    # 拆分大批次为小批次数组
+    batches = [step1_data[i:i + BATCH_SIZE] for i in range(0, len(step1_data), BATCH_SIZE)]
+    
+    # 启用多线程并发调用大模型 API（设置 10 个以上工作线程以应对网络 I/O 等待）
+    all_processed_batches = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # map 能保证返回结果的顺序和输入的 batches 顺序一致
+        all_processed_batches = list(executor.map(process_batch_with_llm, batches))
+    
+    for processed_batch in all_processed_batches:
         for processed_item in processed_batch:
-            base_score = processed_item.get("score", 0)
+            b_score = processed_item.get("business_score", 5)
+            h_score = processed_item.get("heat_score", 5)
             
             pub_time = processed_item.get("publish_time")
             penalty = 0.0
@@ -151,11 +201,12 @@ def run_pipeline(raw_data: List[Dict[str, Any]]) -> pd.DataFrame:
                 days_old = max(0, delta.total_seconds() / (24 * 3600))
                 penalty = round(days_old * 0.2, 1)
                 
-            final_score = max(1.0, round(float(base_score) - penalty, 1))
+            # 综合分数计算 (60% 商用潜力 + 40% 原生极客热度 - 时间惩罚)
+            comp_score = (float(b_score) * 0.6) + (float(h_score) * 0.4) - penalty
+            comp_score = max(1.0, min(10.0, round(comp_score, 1)))
             
-            processed_item["base_score"] = base_score
             processed_item["time_penalty"] = penalty
-            processed_item["score"] = final_score
+            processed_item["comprehensive_score"] = comp_score
             
             processed_data.append(processed_item)
         
@@ -163,13 +214,13 @@ def run_pipeline(raw_data: List[Dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(processed_data)
     
     # 确保所需列存在，即使数据为空
-    required_cols = ["source", "title", "url", "publish_time", "score", "tags", "summary"]
+    required_cols = ["source", "title", "url", "publish_time", "core_event", "business_impact", "category", "tags", "business_score", "heat_score", "comprehensive_score"]
     for col in required_cols:
         if col not in df.columns:
             df[col] = None
             
-    # 按分数降序排列
+    # 按综合分数降序排列
     if not df.empty:
-        df = df.sort_values(by="score", ascending=False).reset_index(drop=True)
+        df = df.sort_values(by="comprehensive_score", ascending=False).reset_index(drop=True)
         
     return df

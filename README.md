@@ -1,79 +1,85 @@
-# 🤖 AI Daily Tracker
+# ⚡️ 金融科技 AI 情报雷达 (AI Daily Tracker)
 
-极简、高信噪比的每日 AI 核心资讯聚合看板。
+这是一个为**金融科技商业分析师 (Fintech BA) 和投资人**量身打造的自动化高维度 AI 情报处理系统。它不仅是一个外媒资讯阅读器，更是一个带有“思考能力”的商业情报引擎。
 
-自动化抓取全球四大前沿信息源，由大语言模型深度分析、评分与摘要提炼，最终呈现为一页式现代数据面板。
+该系统通过 5 大核心信源实时追踪全球前沿科技动态，随后利用**通义千问 (Qwen-Plus)** 大模型进行基于**语义和商业维度的超强 4 选 1 分类**与**深度商业影响（Business Impact）剖析**，并附带一套极其严苛的打分漏斗，将“技术自嗨”的繁杂新闻萃取成对决策有用的“商业价值研报”。
 
 ---
 
-## 🌟 核心特性
+## 🚀 核心看点与功能亮点
 
-| 特性 | 说明 |
-|:---|:---|
-| 🌍 全球极客视野 | 聚合 Hacker News 热榜，捕捉硬核开发者社区的技术讨论与最新发现 |
-| 🐙 热门开源动向 | 追踪 GitHub 当日 Star 增速最快的 AI 相关仓库 |
-| 🤗 模型趋势先锋 | 实时抓取 Hugging Face Trending 榜单，掌握大模型流行风向 |
-| 💡 国内商业落地 | 解析 36氪 RSS 订阅流，过滤国内 AI 产业化与创投前沿动态 |
-| 🧠 LLM 智能漏斗 | 通义千问自动评分 (1~10)、生成标签与一句话中文摘要 |
-| ⏳ 动态热度排序 | 综合内容价值与时间新鲜度，智能平衡重大突破与最新资讯的排列权重 |
-| 👑 全网 Top 5 | 跨源汇总最具影响力的 5 条资讯，置顶高亮展示 |
-| 📂 查看更多 | 折叠区域收纳主页未展示的剩余资讯，按模块分组，附带精简摘要 |
+### 1. 🗃️ 5 大全球原初级情报网络（源头截流）
+系统底层直接对接了横跨中外、覆盖极客圈与资本派的核心 RSS 与 JSON 接口栈，最大满载单次拉取 200 条新鲜资讯：
+- **💰 TechCrunch (Artificial Intelligence)**: 主攻硅谷的创投/融资与大厂并购新闻。
+- **🇨🇳 36Kr**: 通过特有的“AI 关键词双缝干涉过滤”，专门提取大中华区科技商业新闻。
+- **🤖 Reddit (`r/singularity` & `r/MachineLearning`)**: AI 研究员与极客的核心讨论集中营，专挖底层与前沿技术（无头条泄漏点）。
+- **🚀 Product Hunt**: 汇聚全球最新鲜出炉的 AI 商业落地产品与 SaaS 插件。
+- **👨‍💻 Hacker News (Top Stories)**: 具有技术底盘保证的硅谷一线热单。
 
-## 🛠️ 技术栈
+### 2. 🧠 基于 LLM 的“全自动研报化”零样本推理 (Zero-Shot)
+不再采用传统的关键词 Tag 归类方式，取而代之的是纯靠 LLM 强力理解新闻本质：
+- **强行四大阵营分类**：
+  大模型能够无差别将任意一则全外语原新闻按极其宽泛且专业的定性分配至：  
+  `[市场风向标 (Top 5)]`、`[金融与商业落地]`、`[核心底层基建]`、`[资本与创投风向]`、`[前沿与边界探索]`。
+- **💼 BIZ / 🔥 TECH 双轨打分机制**：
+  将资讯评估拆分成「商业潜力（转钱潜能/模式重塑）」与「硬核技术热度」，综合评分机制还会叠加 **Time Decay 时间衰减惩罚** 算法，确保旧新闻排名逐渐让位于新爆发资讯。
+- **多线程并发提速通道**：
+  采用大模型 API 交互多线程（10X 并发处理能力），以往数分钟的处理等待时间现在被疯狂压缩至秒级。
 
-| 层级 | 技术 |
-|:---|:---|
-| 前端 | [Streamlit](https://streamlit.io/)（双栏瀑布流 + 自适应深浅主题） |
-| 数据 | Pandas DataFrame |
-| 网络 | Requests + Python 内置 XML 解析 |
-| AI | OpenAI 兼容 SDK → Qwen (可替换为任意 LLM) |
+### 3. 🎨 剥离极客感的“彭博社/Figma 级别”高密度情报 UI
+彻底打破 Streamlit 传统的简陋 Markdown 渲染排版：
+- 全局原生内嵌 **Plus Jakarta Sans** 英文与无衬线中文字体包。
+- 极简化的高级留白、卡片浮空微动效与**骨架屏占位（Empty State）强制网格对齐**，满足所有 UI 强迫症。
+- 通过 CSS Hack 将复杂的渐变分数条化零为整为轻量级的底栏徽章矩阵，给“核心事件”与“商业预判小金句（Callout）”无限的呼吸展示空间。
 
-## 📁 项目结构
+---
 
-```
-├── app.py              # Streamlit 前端主入口
-├── data_fetcher.py     # 四大数据源抓取器
-├── llm_pipeline.py     # LLM 评分 + 时间衰减算法
-├── test_run.py         # 全链路自动化测试脚本
-└── requirements.txt    # 依赖清单
-```
+## 🛠️ 安装与运行部署
 
-## 🚀 快速开始
-
-### 1. 环境搭建
+### 1. 环境准备
+项目基于 `Python 3.9+` 构建。
+请打开终端执行以下命令直接拉取所有依赖：
 
 ```bash
-# 创建并激活虚拟环境
-python3 -m venv venv
-source venv/bin/activate    # macOS / Linux
-
-# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 2. 配置 API 密钥
+*(依赖库包含：`streamlit`, `pandas`, `requests`, `openai` 等)*
 
-| 文件 | 配置项 | 说明 |
-|:---|:---|:---|
-| `data_fetcher.py` | `Authorization: Bearer <Token>` | 替换为您的 GitHub Personal Access Token |
-| `llm_pipeline.py` | `api_key` / `base_url` | 替换为您使用的 LLM 服务商密钥（默认为阿里通义千问） |
+### 2. 配置大语言模型 API Key
+系统目前默认的大脑引擎是阿里云的「通义千问 API (Qwen)」。你可以在终端跑系统之前，向本地注入你的 API 密钥环境变量：
 
-### 3. 启动
+```bash
+# Mac / Linux
+export QWEN_API_KEY="sk-xxxxxxxxxxxxx"
+# Windows
+set QWEN_API_KEY="sk-xxxxxxxxxxxxx"
+```
+*(如果没有配置，脚本内部的 Try-Catch 错误机制会主动捕获并把所有没有大模型评分的资讯默认甩入“未知领域暂存区”，你的页面绝不会崩溃报错!)*
+
+### 3. [中国大陆用户特供] 解决 `SSL / Max retries exceeded` 错误
+如果你在使用中国大陆网络环境，且本地开着科学代理软件（Clash, V2ray），为了使得终端内的 requests 代码也能穿越封锁抓取 TechCrunch、Hacker News 以及 Reddit：
+
+请务必在运行前端框架前指引环境变量让 Python 走你的本地混合代理隧道（以 7890 端口为例）：
+
+```bash
+export http_proxy=http://127.0.0.1:7890
+export https_proxy=http://127.0.0.1:7890
+export all_proxy=socks5://127.0.0.1:7890
+```
+
+### 4. 启动雷达面板！
+万事俱备，开启雷达发射器：
 
 ```bash
 streamlit run app.py
 ```
+> 点击页面**左侧控制台**的 `[同步最新市场情报]`，欣赏 LLM 强大的并发清洗能力，享用你今天的商业干货吧。
 
-浏览器访问 `http://localhost:8501`，点击侧边栏「🚀 一键获取今日 AI 资讯」即可。
+---
 
-## 🔌 更换 LLM
-
-项目使用标准 `openai` SDK 发送请求，天然兼容所有 OpenAI 格式的 API 端点。只需修改 `llm_pipeline.py` 中的 `base_url` 和 `api_key`，即可无缝切换至 OpenAI / DeepSeek / Kimi / 本地 Ollama 等任意大模型服务。
-
-## ⚠️ 常见问题
-
-**Q: 抓取超时 / Connection Timeout？**
-> 境外源（Hacker News、Hugging Face）默认 25 秒超时。如果网络波动较大，请确保代理工具正常运行。若使用全局 TUN 模式，国内源（36氪）可能被误拦截，建议切换为规则模式或直连。
-
-**Q: 36氪数据为空？**
-> 36氪 RSS 通过关键词过滤 AI 相关内容，若当日该站未发布相关文章则结果为空，属正常现象。
+## 📂 项目关键架构简介
+- `app.py`: Streamlit 的前端外壳，内置一整套 Figma 风格的手写高密度 HTML/CSS 核心模板渲染引擎与状态机逻辑。
+- `llm_pipeline.py`: 信息流精炼提纯中心（Brain）。负责向模型投递高复杂度 Prompt、正则兜底、10工作线程并发及双重打分规则过滤。
+- `data_fetcher.py`: 数据漏斗顶端（Crawler）。直击全球 5 大源头的 RSS / JSON API，包含粗过滤规则。
+- `test_run.py`: 后台开发者的纯 CLI 终端流水线管道测试代码。

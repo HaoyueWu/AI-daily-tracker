@@ -14,7 +14,7 @@ def get_hacker_news() -> List[Dict[str, Any]]:
         top_stories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
         response = requests.get(top_stories_url, timeout=25)
         response.raise_for_status()
-        story_ids = response.json()[:30]
+        story_ids = response.json()[:50]
 
         for story_id in story_ids:
             story_url = f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json"
@@ -34,69 +34,73 @@ def get_hacker_news() -> List[Dict[str, Any]]:
         print(f"Error fetching Hacker News: {e}")
     return results
 
-def get_github_trending() -> List[Dict[str, Any]]:
-    """搜索过去24小时内创建的、带 AI/LLM 标签、Star 增长最快的5个项目"""
+def get_reddit_ai() -> List[Dict[str, Any]]:
+    """抓取 Reddit AI 核心社区 (r/singularity, r/MachineLearning) 的 Top 帖子"""
     results = []
-    try:
-        # 过去24小时的日期
-        yesterday = (datetime.datetime.utcnow() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
-        # 构造搜索查询
-        query = f"created:>{yesterday} topic:ai" # 简化 query 避免 422 错误
-        url = "https://api.github.com/search/repositories"
-        params = {
-            "q": query,
-            "sort": "stars",
-            "order": "desc",
-            "per_page": 20
-        }
-        headers = {
-            "Accept": "application/vnd.github.v3+json",
-            "Authorization": f"Bearer {os.environ.get('GITHUB_TOKEN', '')}"
-        }
-        response = requests.get(url, headers=headers, params=params, timeout=25)
-        response.raise_for_status()
-        data = response.json()
-
-        for item in data.get("items", [])[:20]:
-            publish_time = datetime.datetime.strptime(item.get("created_at"), "%Y-%m-%dT%H:%M:%SZ")
-            results.append({
-                "source": "GitHub",
-                "title": item.get("full_name"),
-                "url": item.get("html_url"),
-                "raw_content": item.get("description") or "No description",
-                "publish_time": publish_time
-            })
-    except Exception as e:
-        print(f"Error fetching GitHub repositories: {e}")
+    # Reddit JSON needs a custom User-Agent to avoid 429 Too Many Requests
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Safari/537.36)"}
+    subreddits = ["singularity", "MachineLearning"]
+    
+    for sub in subreddits:
+        try:
+            url = f"https://www.reddit.com/r/{sub}/top.json?t=day&limit=20"
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            
+            for post in data.get("data", {}).get("children", []):
+                post_data = post.get("data", {})
+                if post_data.get("title") and post_data.get("url"):
+                    publish_time = datetime.datetime.fromtimestamp(post_data.get("created_utc", 0))
+                    results.append({
+                        "source": "Reddit AI",
+                        "title": post_data.get("title"),
+                        "url": post_data.get("url") if not post_data.get("url").startswith("/r/") else f"https://www.reddit.com{post_data.get('permalink')}",
+                        "raw_content": f"[{sub}] Upvotes: {post_data.get('ups', 0)} | Comments: {post_data.get('num_comments', 0)}\n" + (post_data.get("selftext", "")[:200] + "..." if post_data.get("selftext") else ""),
+                        "publish_time": publish_time
+                    })
+        except Exception as e:
+            print(f"Error fetching Reddit r/{sub}: {e}")
+            
     return results
 
-def get_huggingface_trending() -> List[Dict[str, Any]]:
-    """抓取每日 Trending 的 Top 10 模型名称和简介"""
+def get_product_hunt_ai() -> List[Dict[str, Any]]:
+    """抓取 Product Hunt 官方的人工智能专区 RSS"""
     results = []
     try:
-        url = "https://huggingface.co/api/models?sort=trendingScore&direction=-1&limit=20"
-        response = requests.get(url, timeout=25)
+        url = "https://www.producthunt.com/feed?category=artificial-intelligence"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Safari/537.36)"}
+        response = requests.get(url, headers=headers, timeout=25)
         response.raise_for_status()
-        data = response.json()
-
-        now = datetime.datetime.utcnow()
-        for item in data:
+        
+        root = ET.fromstring(response.content)
+        
+        for item in root.findall('./channel/item')[:25]:
+            title = item.find('title')
+            desc = item.find('description')
+            link = item.find('link')
+            pubDate = item.find('pubDate')
+            
+            title_text = title.text if title is not None and title.text else ""
+            desc_text = desc.text if desc is not None and desc.text else ""
+            
             try:
-                # 尝试抓取模型建档时间 "2026-03-09T05:48:58.000Z"
-                created_at_str = item.get("createdAt", "")
-                dt = datetime.datetime.strptime(created_at_str[:19].replace("T", " "), "%Y-%m-%d %H:%M:%S")
-            except Exception:
-                dt = now
+                date_str = pubDate.text.strip()
+                dt = datetime.datetime.strptime(date_str[5:25], "%d %b %Y %H:%M:%S")
+            except:
+                dt = datetime.datetime.utcnow()
                 
             results.append({
-                "source": "Hugging Face",
-                "title": item.get("id"),
-                "url": f"https://huggingface.co/{item.get('id')}",
-                "raw_content": f"Downloads: {item.get('downloads', 0)}, Pipeline: {item.get('pipeline_tag', 'N/A')}",
+                "source": "Product Hunt",
+                "title": title_text,
+                "url": link.text if link is not None else "https://www.producthunt.com",
+                "raw_content": desc_text[:250] + "...",
                 "publish_time": dt
             })
+            
     except Exception as e:
-        print(f"Error fetching Hugging Face models: {e}")
+        print(f"Error fetching Product Hunt RSS: {e}")
+        
     return results
 
 def get_36kr_ai_news() -> List[Dict[str, Any]]:
@@ -117,7 +121,7 @@ def get_36kr_ai_news() -> List[Dict[str, Any]]:
         
         # 在 RSS Channel 内遍历所有文章 item
         for item in root.findall('./channel/item'):
-            if len(results) >= 20:
+            if len(results) >= 40:
                 break
                 
             title = item.find('title')
@@ -152,12 +156,54 @@ def get_36kr_ai_news() -> List[Dict[str, Any]]:
         
     return results
 
+def get_techcrunch_ai() -> List[Dict[str, Any]]:
+    """抓取 TechCrunch 官方的人工智能专区 RSS (含大量创投融资事件)"""
+    results = []
+    try:
+        url = "https://techcrunch.com/category/artificial-intelligence/feed/"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Safari/537.36)"}
+        response = requests.get(url, headers=headers, timeout=25)
+        response.raise_for_status()
+        
+        root = ET.fromstring(response.content)
+        
+        import re
+        for item in root.findall('./channel/item')[:30]:
+            title = item.find('title')
+            desc = item.find('description')
+            link = item.find('link')
+            pubDate = item.find('pubDate')
+            
+            title_text = title.text if title is not None and title.text else ""
+            desc_text = desc.text if desc is not None and desc.text else ""
+            desc_clean = re.sub('<[^<]+>', '', desc_text)
+            
+            try:
+                date_str = pubDate.text.strip()
+                dt = datetime.datetime.strptime(date_str[5:25], "%d %b %Y %H:%M:%S")
+            except:
+                dt = datetime.datetime.utcnow()
+                
+            results.append({
+                "source": "TechCrunch",
+                "title": title_text,
+                "url": link.text if link is not None else "https://techcrunch.com",
+                "raw_content": desc_clean[:250] + "...",
+                "publish_time": dt
+            })
+            
+    except Exception as e:
+        print(f"Error fetching TechCrunch RSS: {e}")
+        
+    return results
+
 def fetch_all() -> List[Dict[str, Any]]:
     """聚合所有数据源"""
     all_data = []
     all_data.extend(get_hacker_news())
-    all_data.extend(get_github_trending())
-    all_data.extend(get_huggingface_trending())
+    all_data.extend(get_reddit_ai())
+    all_data.extend(get_product_hunt_ai())
+    all_data.extend(get_techcrunch_ai())
     all_data.extend(get_36kr_ai_news())
     return all_data
 

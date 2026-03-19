@@ -3,188 +3,490 @@ import pandas as pd
 from data_fetcher import fetch_all
 from llm_pipeline import run_pipeline
 
-# 设置页面配置，极简宽屏风格
-st.set_page_config(page_title="AI Daily Tracker", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="金融科技 AI 情报雷达", page_icon="⚡️", layout="wide", initial_sidebar_state="expanded")
 
-# 自定义 CSS 增加美观度
 st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', 'Noto Sans SC', sans-serif !important;
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+        background-color: #F8FAFC !important;
     }
     
-    /* 弱化 Streamlit 自带的 padding */
+    /* 彻底重设 Streamlit */
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
+        padding-top: 2rem !important; 
+        padding-bottom: 4rem !important;
+        max-width: 1440px !important;
     }
-
-    .top-alpha-card {
+    header {display: none !important;}
+    
+    /* 侧边栏美化 */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #E2E8F0;
+        box-shadow: 10px 0 30px -10px rgba(0,0,0,0.03);
+    }
+    
+    /* 全局组件样式 */
+    .dashboard-header {
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        background: linear-gradient(135deg, #0F172A 0%, #3B82F6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.2rem;
+        line-height: 1.2;
+    }
+    .dashboard-subtitle {
+        color: #64748B;
+        font-size: 0.95rem;
+        font-weight: 500;
+        margin-bottom: 2.5rem;
+    }
+    
+    .section-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #0F172A;
+        margin-top: 2rem;
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .section-title::before {
+        content: "";
+        display: block;
+        width: 5px;
+        height: 18px;
+        background: linear-gradient(180deg, #3B82F6, #8B5CF6);
+        border-radius: 4px;
+    }
+    
+    /* Figma 卡片主体 */
+    .figma-card {
+        background: #ffffff;
+        border-radius: 14px;
         padding: 1.5rem;
-        border-radius: 12px;
-        background-color: var(--secondary-background-color);
-        border-left: 5px solid #ff4b4b;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        border: 1px solid #F1F5F9;
+        margin-bottom: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
     }
-    .tag-badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        margin-right: 0.5rem;
-        font-size: 0.8rem;
+    .figma-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 20px -5px rgba(0, 0, 0, 0.08), 0 6px 8px -4px rgba(0, 0, 0, 0.04);
+        border-color: #E2E8F0;
+    }
+    
+    /* 卡片顶部流光强调条 */
+    .card-top-accent {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+        opacity: 0.9;
+    }
+    .is-top-card .card-top-accent {
+        background: linear-gradient(90deg, #F59E0B, #EF4444);
+    }
+    
+    /* 标题与事件 */
+    .card-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0F172A;
+        text-decoration: none;
+        line-height: 1.4;
+        margin-bottom: 0.6rem;
+        display: block;
+    }
+    .card-title:hover {
+        color: #3B82F6;
+    }
+    
+    .card-event {
+        font-size: 0.85rem;
+        color: #475569;
+        line-height: 1.6;
+        margin-bottom: 1.15rem;
+        font-weight: 500;
+    }
+    
+    /* 商业影响 Callout 框 */
+    .impact-callout {
+        background: #F8FAFC;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        border: 1px solid #E2E8F0;
+        margin-bottom: 1.15rem;
+        position: relative;
+    }
+    .impact-title {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #3B82F6;
+        margin-bottom: 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .impact-content {
+        font-size: 0.85rem;
+        color: #0F172A;
+        line-height: 1.5;
         font-weight: 600;
-        color: #ffffff;
-        background-color: #1f77b4;
-        border-radius: 12px;
     }
-    .source-badge {
+    
+    /* 干净去碍眼的评分展示 */
+    .metrics-simple-container {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 1.15rem;
+    }
+    .metric-simple-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #F1F5F9;
+        border: 1px solid #E2E8F0;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+    }
+    .metric-lbl-cn {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748B;
+    }
+    .metric-val {
+        font-family: monospace;
+        font-weight: 800;
+        font-size: 0.95rem;
+    }
+    
+    /* 分数颜色 */
+    .score-biz { color: #10B981; }
+    .score-tech { color: #8B5CF6; }
+    
+    /* 底部 Metadata */
+    .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px dashed #E2E8F0;
+        padding-top: 0.8rem;
+    }
+    .footer-source {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748B;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .source-dot {
+        width: 6px;
+        height: 6px;
+        background: linear-gradient(135deg, #3B82F6, #2563EB);
+        border-radius: 50%;
+    }
+    .footer-date {
+        font-size: 0.75rem;
+        color: #94A3B8;
+        font-weight: 500;
+    }
+    
+    .tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+    .figma-tag {
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #3B82F6;
+        background: #EFF6FF;
+        padding: 0.2rem 0.6rem;
+        border-radius: 99px;
+    }
+    
+    /* 归档列表样式 (查看更多) */
+    .archive-item {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        border: 1px solid #E2E8F0;
+        margin-bottom: 0.6rem;
+        display: flex;
+        gap: 1.25rem;
+        align-items: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .archive-item:hover {
+        transform: translateX(4px);
+        box-shadow: 0 6px 10px -3px rgba(0, 0, 0, 0.05);
+        border-color: #CBD5E1;
+    }
+    .archive-scores {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        flex-shrink: 0;
+        width: 65px;
+    }
+    .archive-score-box {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 6px;
+        padding: 0.25rem 0;
+        text-align: center;
+    }
+    .archive-score-val {
+        font-size: 0.9rem;
+        font-weight: 800;
+        font-family: monospace;
+        line-height: 1.1;
+    }
+    .archive-score-lbl {
+        font-size: 0.55rem;
+        font-weight: 700;
+        color: #64748B;
+    }
+    .archive-content {
+        flex: 1;
+    }
+    .archive-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0F172A;
+        text-decoration: none;
+        margin-bottom: 0.3rem;
+        display: block;
+        line-height: 1.4;
+    }
+    .archive-title:hover {
+        color: #3B82F6;
+    }
+    .archive-desc {
         font-size: 0.8rem;
-        color: var(--text-color);
-        opacity: 0.6;
+        color: #475569;
+        line-height: 1.4;
+        margin-bottom: 0.5rem;
     }
-    </style>
+    
+</style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 AI Daily Tracker")
-st.markdown("极简、高信噪比的每日 AI 核心资讯聚合平台。经过四大过滤漏斗纯化呈现。")
+st.markdown('<div class="dashboard-header">金融科技 AI 情报雷达</div>', unsafe_allow_html=True)
+st.markdown('<div class="dashboard-subtitle">全网实时追踪与商业价值分析看板</div>', unsafe_allow_html=True)
 
-# 侧边栏
 with st.sidebar:
-    st.header("操作面板")
-    st.markdown("每日定时抓取，或手动点击下方按钮即刻获取：")
+    st.header("情报控制台")
+    st.markdown("启动数据引擎，全网抓取并使用大模型进行商业分析：")
     
-    if st.button("🚀 一键获取今日 AI 资讯", type="primary"):
-        with st.spinner("正在从多源抓取数据..."):
+    if st.button("同步最新市场情报", type="primary", use_container_width=True):
+        with st.spinner("正在抓取全球数据源..."):
             raw_data = fetch_all()
         
         if not raw_data:
-            st.error("未获取到任何数据，请检查网络或 API 接口。")
+            st.error("网络请求失败，未获取到任何数据。")
             st.stop()
             
-        with st.spinner("数据清洗中，正在调用 LLM 进行降噪过滤与分析..."):
-            # 运行分析处理流
+        with st.spinner("正在执行大模型商业价值评估..."):
             df_result = run_pipeline(raw_data)
             
-        # 将结果存在 session_state 中，避免重绘刷新掉
         st.session_state["df_result"] = df_result
-        st.success("数据获取与处理完成！")
+        st.success("情报更新成功。")
+        st.rerun()
 
-# 检查是否有数据已保存在 session_state 当中
+def build_card_html(row, is_top=False):
+    """构建单张新闻卡片的 HTML，彻底避免 Markdown 缩进 Bug"""
+    accent_class = "is-top-card" if is_top else ""
+    
+    try:
+        date_str = pd.to_datetime(row['publish_time']).strftime('%m-%d %H:%M')
+    except:
+        date_str = str(row['publish_time'])[:16]
+    
+    tags_html = "".join([f'<span class="figma-tag">{str(t).strip()}</span>' for t in row.get('tags', [])])
+    
+    biz_score = row.get('business_score', 0)
+    tech_score = row.get('heat_score', 0)
+    
+    core_event = row.get('core_event', '')
+    business_impact = row.get('business_impact', '')
+    source = row.get('source', '')
+    title = row.get('title', '')
+    url = row.get('url', '#')
+    
+    html = f"""
+    <div class="figma-card {accent_class}">
+        <div class="card-top-accent"></div>
+        <a href="{url}" target="_blank" class="card-title">{title}</a>
+        <div class="card-event"><strong style="color: #0F172A;">核心事件：</strong>{core_event}</div>
+        
+        <div class="impact-callout">
+            <div class="impact-title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                商业影响预判
+            </div>
+            <div class="impact-content">{business_impact}</div>
+        </div>
+        
+        <div class="metrics-simple-container">
+            <div class="metric-simple-badge">
+                <span class="metric-lbl-cn">💼 商业潜力</span>
+                <span class="metric-val score-biz">{biz_score}/10</span>
+            </div>
+            <div class="metric-simple-badge">
+                <span class="metric-lbl-cn">🔥 技术热度</span>
+                <span class="metric-val score-tech">{tech_score}/10</span>
+            </div>
+        </div>
+        
+        <div class="card-footer">
+            <div class="tags-container">{tags_html}</div>
+            <div style="display:flex; align-items:center; gap: 1rem;">
+                <div class="footer-source"><div class="source-dot"></div>{source}</div>
+                <div class="footer-date">{date_str}</div>
+            </div>
+        </div>
+    </div>
+    """
+    # 彻底去除换行以防 Streamlit Markdown parser 的 bug 拦截
+    return html.replace('\n', ' ')
+
+def build_empty_card_html():
+    """构建用于对齐的空白占位卡片 HTML"""
+    html = """
+    <div class="figma-card" style="display:flex; align-items:center; justify-content:center; min-height: 250px; background:#F8FAFC; border: 1px dashed #CBD5E1; box-shadow:none;">
+        <div style="text-align:center; color:#94A3B8;">
+            <div style="font-size:1.5rem; margin-bottom:0.5rem;">✨</div>
+            <div style="font-size:0.85rem; font-weight:600;">情报正在赶来</div>
+        </div>
+    </div>
+    """
+    return html.replace('\n', ' ')
+
+def build_archive_html(row):
+    """构建归档列表项的 HTML"""
+    biz_score = row.get('business_score', 0)
+    tech_score = row.get('heat_score', 0)
+    
+    try:
+        date_str = pd.to_datetime(row['publish_time']).strftime('%m-%d')
+    except:
+        date_str = ""
+        
+    html = f"""
+    <div class="archive-item">
+        <div class="archive-scores">
+            <div class="archive-score-box">
+                <div class="archive-score-val score-biz">{biz_score}</div>
+                <div class="archive-score-lbl">商业潜力</div>
+            </div>
+            <div class="archive-score-box">
+                <div class="archive-score-val score-tech">{tech_score}</div>
+                <div class="archive-score-lbl">技术热度</div>
+            </div>
+        </div>
+        <div class="archive-content">
+            <a href="{row['url']}" target="_blank" class="archive-title">{row['title']}</a>
+            <div class="archive-desc">{row.get('core_event', '')}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="footer-source" style="font-size:0.75rem;"><div class="source-dot" style="background:#94A3B8;"></div>{row['source']}</div>
+                <div class="footer-date" style="font-size: 0.75rem;">{date_str}</div>
+            </div>
+        </div>
+    </div>
+    """
+    return html.replace('\n', ' ')
+
 if "df_result" in st.session_state:
     df = st.session_state["df_result"]
     
-    st.markdown("---")
-    
-    # 渲染【总榜单】：全网最具影响力的 Top 5
-    st.subheader("👑 AI要闻 Top5")
-    # 不分源，直接取全局 score 最高的 5 条
-    global_top_5 = df.sort_values(by="score", ascending=False).head(5)
+    # ---------------- 整体概览 TOP 5 ----------------
+    st.markdown('<div class="section-title">市场风向标 (Top 5)</div>', unsafe_allow_html=True)
+    global_top_5 = df.sort_values(by="comprehensive_score", ascending=False).head(5)
     
     if global_top_5.empty:
-        st.info("今日暂无内容。")
+        st.info("今日暂无高优情报介入。")
     else:
-        for _, row in global_top_5.iterrows():
-            score = row['score']
-            tags_html = "".join([f'<span class="tag-badge" style="font-size: 0.9rem; padding: 0.3rem 0.8rem;">{t}</span>' for t in row['tags']])
-            
-            st.markdown(f"""
-                <div class="top-alpha-card" style="border-left: 6px solid #FFD700; padding: 2rem;">
-                    <h3 style="margin-bottom: 0.5rem;"><a href="{row['url']}" target="_blank" style="text-decoration:none; color: var(--text-color);">{row['title']}</a></h3>
-                    <p style="margin-bottom: 1rem; font-size: 1.25rem; color: var(--text-color); opacity: 0.85; line-height: 1.6; font-weight: 500;">{row['summary']}</p>
-                    <div style="margin-top: 1rem;">
-                        {tags_html} 
-                        <span class="source-badge" style="font-size: 0.95rem;">🎖️ 综合热度: <strong style="color: #e74c3c">{score}</strong>/10 | 🌍 {row['source']} | 🕒 {row['publish_time'].strftime('%m-%d')}</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+        # 直接输出拼接好的安全 HTML
+        rendered_html = "".join([build_card_html(row, is_top=True) for _, row in global_top_5.iterrows()])
+        st.markdown(rendered_html, unsafe_allow_html=True)
 
-    st.markdown("---")
-    
-    # 定义四个板块的展示配置项 (已去除英文前缀)
+    # ---------------- 四大核心赛道 ----------------
     sections = [
-        {"source": "Hacker News", "title": "全球极客视野", "icon": "🌐"},
-        {"source": "GitHub", "title": "热门开源动向", "icon": "🐙"},
-        {"source": "Hugging Face", "title": "模型趋势先锋", "icon": "🤗"},
-        {"source": "36Kr", "title": "国内商业落地跟踪", "icon": "💡"}
+        {"category": "金融与应用落地", "title": "金融与商业落地"},
+        {"category": "底层基建", "title": "核心底层基建"},
+        {"category": "资本创投流向", "title": "资本与创投风向"},
+        {"category": "其他边界探索", "title": "前沿与边界探索"}
     ]
     
-    # 将下方板块分组成每行 2 个的形式，实现左右并排布局
     for i in range(0, len(sections), 2):
         row_sections = sections[i:i+2]
-        cols = st.columns(2, gap="large") # 建立左右两栏
+        cols = st.columns(2, gap="large")
         
         for j, col in enumerate(cols):
             if j < len(row_sections):
                 sec = row_sections[j]
                 with col:
-                    st.subheader(f"{sec['icon']} {sec['title']}")
+                    st.markdown(f'<div class="section-title" style="font-size: 1.15rem; margin-top: 1.5rem;">{sec["title"]}</div>', unsafe_allow_html=True)
                     
-                    # 筛选对应源的数据，并按 score 降序（获取最高10条）
-                    source_df = df[df["source"] == sec["source"]].sort_values(by="score", ascending=False).head(10)
+                    source_df = df[df["category"] == sec["category"]].sort_values(by="comprehensive_score", ascending=False)
+                    # 剔除已经在全局 Top 5 里展示过的数据，避免主页内容过多重复
+                    source_df = source_df[~source_df.index.isin(global_top_5.index)]
+                    top5_in_sec = source_df.head(5) # 主页强制展示每个赛道前 5
                     
-                    if source_df.empty:
-                        st.info(f"今日暂无 {sec['title']} 的高评分内容。")
-                    else:
-                        for _, row in source_df.iterrows():
-                            score = row['score']
-                            tags_html = "".join([f'<span class="tag-badge">{t}</span>' for t in row['tags']])
-                            
-                            st.markdown(f"""
-                                <div class="top-alpha-card" style="box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
-                                    <h5 style="margin-bottom: 0.5rem; font-weight: 600;"><a href="{row['url']}" target="_blank" style="text-decoration:none; color: var(--text-color);">{row['title']}</a></h5>
-                                    <p style="margin-bottom: 0.8rem; font-size: 1rem; color: var(--text-color); opacity: 0.8; line-height: 1.5;">{row['summary']}</p>
-                                    <div>
-                                        {tags_html} 
-                                        <div class="source-badge" style="margin-top: 0.5rem;">🎖️ 综合热度: <strong>{score}</strong>/10 | 🕒 {row['publish_time'].strftime('%m-%d %H:%M') if isinstance(row['publish_time'], pd.Timestamp) else row['publish_time']}</div>
-                                    </div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    rendered_html = ""
+                    if not top5_in_sec.empty:
+                        rendered_html = "".join([build_card_html(row, is_top=False) for _, row in top5_in_sec.iterrows()])
+                    
+                    # 补充空白补齐 5 个以保证对齐
+                    padding_count = 5 - len(top5_in_sec)
+                    if padding_count > 0:
+                        rendered_html += "".join([build_empty_card_html() for _ in range(padding_count)])
+                    
+                    st.markdown(rendered_html, unsafe_allow_html=True)
 
-    # ======== 查看更多：展示未在主页中显示的剩余新闻 ========
-    st.markdown("---")
+    # ---------------- 深度追踪 / 查看更多 ----------------
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">深度追踪与历史归档</div>', unsafe_allow_html=True)
     
-    # 收集主页已展示的索引（Top5 + 各板块 Top10）
+    # 排重，确保主页显示过的不重复出现
     shown_indices = set(global_top_5.index.tolist())
     for sec in sections:
-        top10 = df[df["source"] == sec["source"]].sort_values(by="score", ascending=False).head(10)
-        shown_indices.update(top10.index.tolist())
+        source_df = df[df["category"] == sec["category"]].sort_values(by="comprehensive_score", ascending=False)
+        source_df = source_df[~source_df.index.isin(global_top_5.index)]
+        shown_indices.update(source_df.head(5).index.tolist())
     
-    # 剩余未展示的新闻
     remaining_df = df[~df.index.isin(shown_indices)]
     
     if not remaining_df.empty:
-        with st.expander(f"📂 查看更多 )", expanded=False):
-            for sec in sections:
-                sec_remaining = remaining_df[remaining_df["source"] == sec["source"]].sort_values(by="score", ascending=False)
+        archive_html = ""
+        for sec in sections:
+            sec_remaining = remaining_df[remaining_df["category"] == sec["category"]].sort_values(by="comprehensive_score", ascending=False)
+            if not sec_remaining.empty:
+                archive_html += f"<div style='font-size:1rem; font-weight:800; color:#0F172A; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #F1F5F9;'>{sec['title']}</div>"
+                archive_html += "".join([build_archive_html(row) for _, row in sec_remaining.iterrows()])
                 
-                if sec_remaining.empty:
-                    continue
-                    
-                st.markdown(f"**{sec['icon']} {sec['title']}**")
-                
-                for _, row in sec_remaining.iterrows():
-                    score = row['score']
-                    try:
-                        date_str = row['publish_time'].strftime('%m-%d %H:%M') if isinstance(row['publish_time'], pd.Timestamp) else str(row['publish_time'])[:16]
-                    except:
-                        date_str = str(row['publish_time'])[:16]
-                    
-                    summary_text = row.get('summary', '') or ''
-                    st.markdown(f"""
-                        <div style="padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; border-radius: 8px; background-color: var(--secondary-background-color);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                                <a href="{row['url']}" target="_blank" style="text-decoration:none; color: var(--text-color); font-size: 0.85rem; font-weight: 500; flex: 1; min-width: 200px;">{row['title']}</a>
-                                <span style="font-size: 0.75rem; color: var(--text-color); opacity: 0.5; white-space: nowrap; margin-left: 1rem;">🎖️ {score}/10 | 🕒 {date_str}</span>
-                            </div>
-                            <p style="margin: 0.3rem 0 0 0; font-size: 0.78rem; color: var(--text-color); opacity: 0.55; line-height: 1.4;">{summary_text}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
+        st.markdown(archive_html, unsafe_allow_html=True)
 else:
-    st.info("👈 请点击左侧面板的「一键获取今日 AI 资讯」按钮启动引擎。")
+    st.markdown("""
+        <div style="text-align: center; padding: 4rem 2rem; background: white; border-radius: 20px; border: 1px dashed #CBD5E1; margin-top: 2rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🛰️</div>
+            <h3 style="color: #0F172A; font-family: 'Plus Jakarta Sans', sans-serif;">等待同步全网情报</h3>
+            <p style="color: #64748B; margin-bottom: 2rem;">请点击左侧控制台的「同步最新市场情报」按钮，启动数据抓取与大模型评估任务。</p>
+        </div>
+    """, unsafe_allow_html=True)
