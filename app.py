@@ -350,7 +350,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="dashboard-header">金融科技 AI 情报雷达</div>', unsafe_allow_html=True)
+st.markdown('<div class="dashboard-header">AI Daily Tracker</div>', unsafe_allow_html=True)
 st.markdown('<div class="dashboard-subtitle">全网实时追踪与商业价值分析看板</div>', unsafe_allow_html=True)
 
 with st.sidebar:
