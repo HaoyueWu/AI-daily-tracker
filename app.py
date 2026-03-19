@@ -284,6 +284,69 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
     
+
+    /* =========================================
+       🔥🔥 无缝适配深色模式 (Dark Mode) 🔥🔥
+       ========================================= */
+    @media (prefers-color-scheme: dark) {
+        html, body, [class*="css"] {
+            background-color: #0B1120 !important;
+            color: #F8FAFC !important;
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, #F8FAFC 0%, #93C5FD 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .section-title { color: #F1F5F9 !important; }
+        .figma-card, .archive-item {
+            background: #1E293B !important;
+            border-color: #334155 !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        }
+        .card-title, .archive-title { color: #F8FAFC !important; }
+        .card-event, .impact-content, .archive-desc { color: #CBD5E1 !important; }
+        .card-event strong { color: #E2E8F0 !important; }
+        
+        .impact-callout {
+            background: #0F172A !important;
+            border-color: #334155 !important;
+        }
+        .impact-title { color: #60A5FA !important; }
+        
+        .metric-simple-badge, .archive-score-box {
+            background: #0F172A !important;
+            border-color: #334155 !important;
+        }
+        .metric-lbl-cn, .archive-score-lbl, .footer-source { color: #94A3B8 !important; }
+        .metric-val, .archive-score-val { color: #F1F5F9 !important; }
+        
+        .score-biz { color: #34D399 !important; } /* 绿色变亮 */
+        .score-tech { color: #A78BFA !important; } /* 紫色变亮 */
+        
+        .card-footer { border-top-color: #334155 !important; }
+        .figma-tag {
+            background: #0F172A !important;
+            color: #93C5FD !important;
+            border: 1px solid #1E3A8A !important;
+        }
+        .empty-placeholder {
+            background: #1E293B !important;
+            border-color: #334155 !important;
+        }
+        .empty-placeholder h3 { color: #F8FAFC !important; }
+        .empty-placeholder p { color: #94A3B8 !important; }
+        
+        [data-testid="stSidebar"] {
+            background-color: #0F172A !important;
+            border-right: 1px solid #1E293B !important;
+        }
+        /* 归档分隔线 */
+        .archive-separator {
+            color: #F1F5F9 !important;
+            border-bottom-color: #334155 !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -369,7 +432,7 @@ def build_card_html(row, is_top=False):
 def build_empty_card_html():
     """构建用于对齐的空白占位卡片 HTML"""
     html = """
-    <div class="figma-card" style="display:flex; align-items:center; justify-content:center; min-height: 250px; background:#F8FAFC; border: 1px dashed #CBD5E1; box-shadow:none;">
+    <div class="figma-card empty-placeholder" style="display:flex; align-items:center; justify-content:center; min-height: 250px; background:#F8FAFC; border: 1px dashed #CBD5E1; box-shadow:none; border-radius:14px;">
         <div style="text-align:center; color:#94A3B8;">
             <div style="font-size:1.5rem; margin-bottom:0.5rem;">✨</div>
             <div style="font-size:0.85rem; font-weight:600;">情报正在赶来</div>
@@ -485,13 +548,13 @@ if "df_result" in st.session_state:
         for sec in sections:
             sec_remaining = remaining_df[remaining_df["category"] == sec["category"]].sort_values(by="comprehensive_score", ascending=False)
             if not sec_remaining.empty:
-                archive_html += f"<div style='font-size:1rem; font-weight:800; color:#0F172A; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #F1F5F9;'>{sec['title']}</div>"
+                archive_html += f"<div class='archive-separator' style='font-size:1rem; font-weight:800; color:#0F172A; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #F1F5F9;'>{sec['title']}</div>"
                 archive_html += "".join([build_archive_html(row) for _, row in sec_remaining.iterrows()])
                 
         st.markdown(archive_html, unsafe_allow_html=True)
 else:
     st.markdown("""
-        <div style="text-align: center; padding: 4rem 2rem; background: white; border-radius: 20px; border: 1px dashed #CBD5E1; margin-top: 2rem;">
+        <div class="empty-placeholder" style="text-align: center; padding: 4rem 2rem; background: white; border-radius: 20px; border: 1px dashed #CBD5E1; margin-top: 2rem;">
             <div style="font-size: 3rem; margin-bottom: 1rem;">🛰️</div>
             <h3 style="color: #0F172A; font-family: 'Plus Jakarta Sans', sans-serif;">等待同步全网情报</h3>
             <p style="color: #64748B; margin-bottom: 2rem;">请点击左侧控制台的「同步最新市场情报」按钮，启动数据抓取与大模型评估任务。</p>
