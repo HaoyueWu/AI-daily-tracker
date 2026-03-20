@@ -206,8 +206,10 @@ def fetch_all() -> List[Dict[str, Any]]:
     all_data.extend(get_techcrunch_ai())
     all_data.extend(get_36kr_ai_news())
     
-    # 记录统一的获取时间 (精确到分)
-    fetch_time = datetime.datetime.now()
+    # 记录统一的获取时间 (强制使用北京时间 UTC+8)
+    from datetime import timezone, timedelta
+    tz_bj = timezone(timedelta(hours=8))
+    fetch_time = datetime.datetime.now(tz_bj)
     for item in all_data:
         item["fetch_time"] = fetch_time
         
