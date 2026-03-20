@@ -373,7 +373,7 @@ if "df_result" in st.session_state and not st.session_state["df_result"].empty:
             fetch_time_str = raw_fetch_time.strftime('%Y-%m-%d %H:%M')
         else:
             fetch_time_str = str(raw_fetch_time)[:16]
-        st.markdown(f'<div class="global-fetch-time">📡 情报获取时间：{fetch_time_str} (北京时间)</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="global-fetch-time">📡 情报获取时间：{fetch_time_str}</div>', unsafe_allow_html=True)
     except Exception as e:
         pass
 
