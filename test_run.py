@@ -52,7 +52,7 @@ def test_pipeline():
     else:
         print("成功转化为 Pandas DataFrame！以下为前 3 条结果：\n")
         # 打印特定的列以检查数据完整性
-        print(df_result[['source', 'title', 'business_score', 'heat_score', 'category']].head(3).to_markdown())
+        print(df_result[['source', 'title', 'fetch_time', 'business_score', 'heat_score', 'category']].head(3).to_markdown())
         
         print("\n查看第一条解析后的完整结构体:")
         first_result = df_result.iloc[0].to_dict()

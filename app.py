@@ -112,6 +112,16 @@ st.markdown("""
         color: #3B82F6;
     }
     
+    .fetch-time-subtitle {
+        font-size: 0.75rem;
+        color: #94A3B8;
+        font-weight: 600;
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
     .card-event {
         font-size: 0.85rem;
         color: #475569;
@@ -392,10 +402,16 @@ def build_card_html(row, is_top=False):
     title = row.get('title', '')
     url = row.get('url', '#')
     
+    try:
+        fetch_time_str = pd.to_datetime(row['fetch_time']).strftime('%Y-%m-%d %H:%M')
+    except:
+        fetch_time_str = str(row.get('fetch_time', ''))[:16]
+    
     html = f"""
     <div class="figma-card {accent_class}">
         <div class="card-top-accent"></div>
         <a href="{url}" target="_blank" class="card-title">{title}</a>
+        <div class="fetch-time-subtitle">📥 获取时间：{fetch_time_str}</div>
         <div class="card-event"><strong style="color: #0F172A;">核心事件：</strong>{core_event}</div>
         
         <div class="impact-callout">
@@ -465,7 +481,8 @@ def build_archive_html(row):
         </div>
         <div class="archive-content">
             <a href="{row['url']}" target="_blank" class="archive-title">{row['title']}</a>
-            <div class="archive-desc">{row.get('core_event', '')}</div>
+            <div class="archive-desc" style="margin-bottom: 0.2rem;">{row.get('core_event', '')}</div>
+            <div style="font-size: 0.7rem; color: #94A3B8; margin-bottom: 0.5rem;">获取时间：{str(row.get('fetch_time', ''))[:16]}</div>
             <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div class="footer-source" style="font-size:0.75rem;"><div class="source-dot" style="background:#94A3B8;"></div>{row['source']}</div>
                 <div class="footer-date" style="font-size: 0.75rem;">{date_str}</div>

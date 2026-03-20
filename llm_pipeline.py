@@ -214,7 +214,10 @@ def run_pipeline(raw_data: List[Dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(processed_data)
     
     # 确保所需列存在，即使数据为空
-    required_cols = ["source", "title", "url", "publish_time", "core_event", "business_impact", "category", "tags", "business_score", "heat_score", "comprehensive_score"]
+    required_cols = [
+        "source", "title", "url", "publish_time", "fetch_time", "core_event", 
+        "business_impact", "category", "tags", "business_score", "heat_score", "comprehensive_score"
+    ]
     for col in required_cols:
         if col not in df.columns:
             df[col] = None
